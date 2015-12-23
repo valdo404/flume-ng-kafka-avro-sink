@@ -74,6 +74,7 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
 
             String line = new String(event.getBody());
             HashMap<String, Object> map = KafkaAvroSinkUtil.parseMessage(parser, props, line);
+
             Record record = KafkaAvroSinkUtil.fillRecord(KafkaAvroSinkUtil.fillAvroTestSchema(avroSchemaFile), map);
             byte[] avroRecord = KafkaAvroSinkUtil.encodeMessage(topic, record, props);
 
@@ -111,12 +112,8 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
         props = KafkaAvroSinkUtil.getKafkaConfigProperties(context);
         try {
             parser = (Parser) Class.forName(props.getProperty(KafkaAvroSinkUtil.PARSER_CLASS)).newInstance();
-        } catch (InstantiationException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+        } catch (InstantiationException | ClassNotFoundException | IllegalAccessException e) {
+           stop();
         }
     }
 
