@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *  
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *  
+ * <p>
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -48,86 +48,86 @@ import org.slf4j.LoggerFactory;
  * <p>
  * <tt>producer.type: </tt> type of producer of kafka, async or sync is
  * available.<o> <tt>serializer.class: </tt>{@kafka.serializer.StringEncoder
- * 
- * 
+ *
+ *
  * }
  */
 public class KafkaAvroSink extends AbstractSink implements Configurable {
-	private static final Logger log = LoggerFactory.getLogger(KafkaAvroSink.class);
-	private String topic;
-	private Producer<byte[], byte[]> producer;
-	private File avroSchemaFile;
-	private Properties props;
-	private Parser parser;
+    private static final Logger log = LoggerFactory.getLogger(KafkaAvroSink.class);
+    private String topic;
+    private Producer<byte[], byte[]> producer;
+    private File avroSchemaFile;
+    private Properties props;
+    private Parser parser;
 
-	public Status process() throws EventDeliveryException {
-		Channel channel = getChannel();
-		Transaction tx = channel.getTransaction();
-		try {
-			tx.begin();
-			Event event = channel.take();
-			if (event == null) {
-				tx.commit();
-				return Status.READY;
+    public Status process() throws EventDeliveryException {
+        Channel channel = getChannel();
+        Transaction tx = channel.getTransaction();
+        try {
+            tx.begin();
+            Event event = channel.take();
+            if (event == null) {
+                tx.commit();
+                return Status.READY;
 
-			}
-			
-			String line = new String (event.getBody());
-			HashMap<String, Object> map = KafkaAvroSinkUtil.parseMessage(parser, props,line);
-			Record record = KafkaAvroSinkUtil.fillRecord(KafkaAvroSinkUtil.fillAvroTestSchema(avroSchemaFile),map);
-			byte[] avroRecord = KafkaAvroSinkUtil.encodeMessage(topic,record,props);
-			
-	        producer.send(new KeyedMessage<byte[], byte[]>(this.topic, avroRecord));
+            }
 
-			tx.commit();
-			return Status.READY;
-		} catch (Exception e) {
-			try {
-				tx.rollback();
-				return Status.BACKOFF;
-			} catch (Exception e2) {
-				log.error("Rollback Exception:{}", e2);
-			}		
-			log.error("KafkaAvroSink Exception:{}", e);
-			return Status.BACKOFF;
-		} finally {
-			tx.close();
-		}
-	}
+            String line = new String(event.getBody());
+            HashMap<String, Object> map = KafkaAvroSinkUtil.parseMessage(parser, props, line);
+            Record record = KafkaAvroSinkUtil.fillRecord(KafkaAvroSinkUtil.fillAvroTestSchema(avroSchemaFile), map);
+            byte[] avroRecord = KafkaAvroSinkUtil.encodeMessage(topic, record, props);
 
-	public void configure(Context context) {
-		topic = context.getString("topic");
-		if (topic == null) {
-			throw new ConfigurationException("Kafka topic must be specified.");
-		}
-		// Get schema file
-		String avroSchemaFileName = context.getString("avro.schema.file");
-		if (avroSchemaFileName == null) {
-			throw new ConfigurationException("Avro schema must be specified.");
-		}else{
-			avroSchemaFile = new File(avroSchemaFileName);
-		}
-		producer = KafkaAvroSinkUtil.getProducer(context);
-		props = KafkaAvroSinkUtil.getKafkaConfigProperties(context);
-		try {
-			parser = (Parser) Class.forName(props.getProperty(KafkaAvroSinkUtil.PARSER_CLASS)).newInstance();
-		} catch (InstantiationException e) {
-			e.printStackTrace();
-		} catch (IllegalAccessException e) {
-			e.printStackTrace();
-		} catch (ClassNotFoundException e) {
-			e.printStackTrace();
-		}
-	}
+            producer.send(new KeyedMessage<byte[], byte[]>(this.topic, avroRecord));
 
-	@Override
-	public synchronized void start() {
-		super.start();
-	}
+            tx.commit();
+            return Status.READY;
+        } catch (Exception e) {
+            try {
+                tx.rollback();
+                return Status.BACKOFF;
+            } catch (Exception e2) {
+                log.error("Rollback Exception:{}", e2);
+            }
+            log.error("KafkaAvroSink Exception:{}", e);
+            return Status.BACKOFF;
+        } finally {
+            tx.close();
+        }
+    }
 
-	@Override
-	public synchronized void stop() {
-		producer.close();
-		super.stop();
-	}
+    public void configure(Context context) {
+        topic = context.getString("topic");
+        if (topic == null) {
+            throw new ConfigurationException("Kafka topic must be specified.");
+        }
+        // Get schema file
+        String avroSchemaFileName = context.getString("avro.schema.file");
+        if (avroSchemaFileName == null) {
+            throw new ConfigurationException("Avro schema must be specified.");
+        } else {
+            avroSchemaFile = new File(avroSchemaFileName);
+        }
+        producer = KafkaAvroSinkUtil.getProducer(context);
+        props = KafkaAvroSinkUtil.getKafkaConfigProperties(context);
+        try {
+            parser = (Parser) Class.forName(props.getProperty(KafkaAvroSinkUtil.PARSER_CLASS)).newInstance();
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public synchronized void start() {
+        super.start();
+    }
+
+    @Override
+    public synchronized void stop() {
+        producer.close();
+        super.stop();
+    }
 }

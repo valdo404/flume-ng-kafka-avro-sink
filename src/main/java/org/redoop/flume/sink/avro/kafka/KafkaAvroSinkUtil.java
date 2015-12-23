@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *  
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *  
+ * <p>
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -39,58 +39,60 @@ import com.linkedin.camus.etl.kafka.coders.KafkaAvroMessageEncoder;
 
 
 public class KafkaAvroSinkUtil {
-	private static final Logger log = LoggerFactory.getLogger(KafkaAvroSinkUtil.class);
-	public static final String PARSER_CLASS = "parser.class";
+    private static final Logger log = LoggerFactory.getLogger(KafkaAvroSinkUtil.class);
+    public static final String PARSER_CLASS = "parser.class";
 
-	public static Properties getKafkaConfigProperties(Context context) {
-		log.info("context={}",context.toString());
-		Properties props = new Properties();
-		Map<String, String> contextMap = context.getParameters();
-		for(String key : contextMap.keySet()) {
-			if (!key.equals("type") && !key.equals("channel")) {
-				props.setProperty(key, context.getString(key));
-				log.info("key={},value={}",key,context.getString(key));
-			}
-		}
-		return props;
-	}
-	public static Producer<byte[], byte[]> getProducer(Context context) {
-		Producer<byte[], byte[]> producer;
-		producer = new Producer<byte[], byte[]>(new ProducerConfig(getKafkaConfigProperties(context)));
-		return producer;
-	}
-	
-	public static byte[] encodeMessage(String topic, IndexedRecord record, Properties props){
-    	KafkaAvroMessageEncoder encoder = new KafkaAvroMessageEncoder(topic, null);
-		encoder.init(props, topic);
-    	return encoder.toBytes(record);
+    public static Properties getKafkaConfigProperties(Context context) {
+        log.info("context={}", context.toString());
+        Properties props = new Properties();
+        Map<String, String> contextMap = context.getParameters();
+
+        for (String key : contextMap.keySet()) {
+            if (!key.equals("type") && !key.equals("channel")) {
+                props.setProperty(key, context.getString(key));
+                log.info("key={},value={}", key, context.getString(key));
+            }
+        }
+        return props;
     }
-	
-	@SuppressWarnings("deprecation")
-	public static Schema fillAvroTestSchema(File jsonSchemaFile) throws IOException{
-     	//Schema.Parser schemaParser = Schema.Parser();
-    	return Schema.parse(jsonSchemaFile);
+
+    public static Producer<byte[], byte[]> getProducer(Context context) {
+        Producer<byte[], byte[]> producer;
+        producer = new Producer<byte[], byte[]>(new ProducerConfig(getKafkaConfigProperties(context)));
+        return producer;
     }
-    
-    public static Record fillRecord(Schema schema, HashMap<String, Object> map){
-		Record record = new Record(schema);
-		for ( String key : map.keySet() ) {
-		    record.put(key, map.get(key));
-		}		    	
-    	return record;
+
+    public static byte[] encodeMessage(String topic, IndexedRecord record, Properties props) {
+        KafkaAvroMessageEncoder encoder = new KafkaAvroMessageEncoder(topic, null);
+        encoder.init(props, topic);
+        return encoder.toBytes(record);
     }
-    
-	public static HashMap<String, Object> parseMessage(Parser parser, Properties props, String line) throws IllegalAccessException, ClassNotFoundException, InstantiationException {
-		try {
-			return parser.parse(line);
-		} catch (Exception e) {
-			log.error("KafkaAvroUtilSink Exception:{}", e);
-			throw e;
-		}
-		
-	}
-	
-	
+
+    @SuppressWarnings("deprecation")
+    public static Schema fillAvroTestSchema(File jsonSchemaFile) throws IOException {
+        //Schema.Parser schemaParser = Schema.Parser();
+        return Schema.parse(jsonSchemaFile);
+    }
+
+    public static Record fillRecord(Schema schema, HashMap<String, Object> map) {
+        Record record = new Record(schema);
+        for (String key : map.keySet()) {
+            record.put(key, map.get(key));
+        }
+        return record;
+    }
+
+    public static HashMap<String, Object> parseMessage(Parser parser, Properties props, String line) throws IllegalAccessException, ClassNotFoundException, InstantiationException {
+        try {
+            return parser.parse(line);
+        } catch (Exception e) {
+            log.error("KafkaAvroUtilSink Exception:{}", e);
+            throw e;
+        }
+
+    }
+
+
 }
 
 
