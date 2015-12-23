@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Properties;
 
+import com.linkedin.camus.etl.kafka.coders.KafkaAvroMessageEncoder;
 import kafka.javaapi.producer.Producer;
 import kafka.producer.KeyedMessage;
 
@@ -63,6 +64,7 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
     private File avroSchemaFile;
     private Properties props;
     private Parser parser;
+    KafkaAvroMessageEncoder encoder;
 
     public Status process() throws EventDeliveryException {
         Channel channel = getChannel();
@@ -77,7 +79,7 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
             }
 
             Record record = buildRecord(event.getBody());
-            byte[] avroRecord = KafkaAvroSinkUtil.encodeRecord(topic, record, props);
+            byte[] avroRecord = KafkaAvroSinkUtil.encodeRecord(encoder, record);
 
             producer.send(new KeyedMessage<byte[], byte[]>(this.topic, avroRecord));
 
@@ -120,6 +122,8 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
         }
         producer = KafkaAvroSinkUtil.getProducer(context);
         props = KafkaAvroSinkUtil.getKafkaConfigProperties(context);
+        encoder = new KafkaAvroMessageEncoder(topic, null);
+        encoder.init(props, topic);
 
         instanciateParser();
     }

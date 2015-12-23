@@ -64,9 +64,7 @@ public class KafkaAvroSinkUtil {
         return producer;
     }
 
-    public static byte[] encodeRecord(String topic, IndexedRecord record, Properties props) {
-        KafkaAvroMessageEncoder encoder = new KafkaAvroMessageEncoder(topic, null);
-        encoder.init(props, topic);
+    public static byte[] encodeRecord(KafkaAvroMessageEncoder encoder, IndexedRecord record) {
         return encoder.toBytes(record);
     }
 
