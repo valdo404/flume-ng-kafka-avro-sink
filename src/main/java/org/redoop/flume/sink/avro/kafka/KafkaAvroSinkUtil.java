@@ -18,29 +18,23 @@
  *******************************************************************************/
 package org.redoop.flume.sink.avro.kafka;
 
+import kafka.javaapi.producer.Producer;
+import kafka.producer.ProducerConfig;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData.Record;
+import org.apache.flume.Context;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-import kafka.javaapi.producer.Producer;
-import kafka.producer.ProducerConfig;
-
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData.Record;
-import org.apache.avro.generic.IndexedRecord;
-import org.apache.flume.Context;
-import org.redoop.flume.sink.avro.kafka.parsers.Parser;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.linkedin.camus.etl.kafka.coders.KafkaAvroMessageEncoder;
-
 
 public class KafkaAvroSinkUtil {
     private static final Logger log = LoggerFactory.getLogger(KafkaAvroSinkUtil.class);
-    private static Schema.Parser parser = new Schema.Parser();
 
     public static Properties getKafkaConfigProperties(Context context) {
         log.info("context={}", context.toString());
@@ -64,12 +58,8 @@ public class KafkaAvroSinkUtil {
         return producer;
     }
 
-    public static byte[] encodeRecord(KafkaAvroMessageEncoder encoder, IndexedRecord record) {
-        return encoder.toBytes(record);
-    }
-
     public static Schema schemaFromFile(File jsonSchemaFile) throws IOException {
-        return parser.parse(jsonSchemaFile);
+        return (new Schema.Parser()).parse(jsonSchemaFile);
     }
 
     public static Record recordFromMap(Schema schema, HashMap<String, Object> map) {
