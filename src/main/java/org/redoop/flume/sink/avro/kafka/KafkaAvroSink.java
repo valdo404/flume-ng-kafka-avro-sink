@@ -84,7 +84,6 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
             if (event == null) {
                 tx.commit();
                 return Status.READY;
-
             }
 
             Record record = buildRecord(event.getBody());
@@ -102,7 +101,7 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
             } catch (Exception e2) {
                 log.error("Rollback Exception:{}", e2);
             }
-            log.error("KafkaAvroSink Exception:{}", e);
+            log.error("Avro sink exception:{}", e);
             return Status.BACKOFF;
         } finally {
             tx.close();
