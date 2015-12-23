@@ -40,10 +40,11 @@ import com.linkedin.camus.etl.kafka.coders.KafkaAvroMessageEncoder;
 
 public class KafkaAvroSinkUtil {
     private static final Logger log = LoggerFactory.getLogger(KafkaAvroSinkUtil.class);
-    public static final String PARSER_CLASS = "parser.class";
+    private static Schema.Parser parser = new Schema.Parser();
 
     public static Properties getKafkaConfigProperties(Context context) {
         log.info("context={}", context.toString());
+
         Properties props = new Properties();
         Map<String, String> contextMap = context.getParameters();
 
@@ -58,41 +59,28 @@ public class KafkaAvroSinkUtil {
 
     public static Producer<byte[], byte[]> getProducer(Context context) {
         Producer<byte[], byte[]> producer;
-        producer = new Producer<byte[], byte[]>(new ProducerConfig(getKafkaConfigProperties(context)));
+        producer = new Producer<>(new ProducerConfig(getKafkaConfigProperties(context)));
+
         return producer;
     }
 
-    public static byte[] encodeMessage(String topic, IndexedRecord record, Properties props) {
+    public static byte[] encodeRecord(String topic, IndexedRecord record, Properties props) {
         KafkaAvroMessageEncoder encoder = new KafkaAvroMessageEncoder(topic, null);
         encoder.init(props, topic);
         return encoder.toBytes(record);
     }
 
-    @SuppressWarnings("deprecation")
-    public static Schema fillAvroTestSchema(File jsonSchemaFile) throws IOException {
-        //Schema.Parser schemaParser = Schema.Parser();
-        return Schema.parse(jsonSchemaFile);
+    public static Schema schemaFromFile(File jsonSchemaFile) throws IOException {
+        return parser.parse(jsonSchemaFile);
     }
 
-    public static Record fillRecord(Schema schema, HashMap<String, Object> map) {
+    public static Record recordFromMap(Schema schema, HashMap<String, Object> map) {
         Record record = new Record(schema);
         for (String key : map.keySet()) {
             record.put(key, map.get(key));
         }
         return record;
     }
-
-    public static HashMap<String, Object> parseMessage(Parser parser, Properties props, String line) throws IllegalAccessException, ClassNotFoundException, InstantiationException {
-        try {
-            return parser.parse(line);
-        } catch (Exception e) {
-            log.error("KafkaAvroUtilSink Exception:{}", e);
-            throw e;
-        }
-
-    }
-
-
 }
 
 

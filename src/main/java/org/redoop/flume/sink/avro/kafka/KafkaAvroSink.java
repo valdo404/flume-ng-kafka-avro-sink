@@ -19,12 +19,14 @@
 package org.redoop.flume.sink.avro.kafka;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Properties;
 
 import kafka.javaapi.producer.Producer;
 import kafka.producer.KeyedMessage;
 
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData.Record;
 import org.apache.flume.Channel;
 import org.apache.flume.Context;
@@ -53,6 +55,8 @@ import org.slf4j.LoggerFactory;
  * }
  */
 public class KafkaAvroSink extends AbstractSink implements Configurable {
+    public static final String PARSER_CLASS = "parser.class";
+
     private static final Logger log = LoggerFactory.getLogger(KafkaAvroSink.class);
     private String topic;
     private Producer<byte[], byte[]> producer;
@@ -72,11 +76,8 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
 
             }
 
-            String line = new String(event.getBody());
-            HashMap<String, Object> map = KafkaAvroSinkUtil.parseMessage(parser, props, line);
-
-            Record record = KafkaAvroSinkUtil.fillRecord(KafkaAvroSinkUtil.fillAvroTestSchema(avroSchemaFile), map);
-            byte[] avroRecord = KafkaAvroSinkUtil.encodeMessage(topic, record, props);
+            Record record = buildRecord(event.getBody());
+            byte[] avroRecord = KafkaAvroSinkUtil.encodeRecord(topic, record, props);
 
             producer.send(new KeyedMessage<byte[], byte[]>(this.topic, avroRecord));
 
@@ -96,6 +97,15 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
         }
     }
 
+    private Record buildRecord(byte[] body) throws IOException {
+        String line = new String(body);
+        HashMap<String, Object> map = parser.parse(line);
+
+        Schema schema = KafkaAvroSinkUtil.schemaFromFile(avroSchemaFile);
+
+        return KafkaAvroSinkUtil.recordFromMap(schema, map);
+    }
+
     public void configure(Context context) {
         topic = context.getString("topic");
         if (topic == null) {
@@ -110,8 +120,13 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
         }
         producer = KafkaAvroSinkUtil.getProducer(context);
         props = KafkaAvroSinkUtil.getKafkaConfigProperties(context);
+
+        instanciateParser();
+    }
+
+    private void instanciateParser() {
         try {
-            parser = (Parser) Class.forName(props.getProperty(KafkaAvroSinkUtil.PARSER_CLASS)).newInstance();
+            parser = (Parser) Class.forName(props.getProperty(PARSER_CLASS)).newInstance();
         } catch (InstantiationException | ClassNotFoundException | IllegalAccessException e) {
            stop();
         }
