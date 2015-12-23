@@ -37,7 +37,6 @@ public class DelegatingKafkaAvroMessageEncoder extends MessageEncoder<IndexedRec
     @SuppressWarnings("unchecked")
     public DelegatingKafkaAvroMessageEncoder(String topicName, Configuration conf) {
         this.topicName = topicName;
-
     }
 
     public void init(Properties props, String topicName,SchemaRegistry<Schema> registry) {
@@ -84,14 +83,12 @@ public class DelegatingKafkaAvroMessageEncoder extends MessageEncoder<IndexedRec
             DatumWriter<IndexedRecord> writer;
 
             if (record instanceof SpecificRecord)
-                writer = new SpecificDatumWriter<IndexedRecord>(record.getSchema());
+                writer = new SpecificDatumWriter<>(record.getSchema());
             else
-                writer = new GenericDatumWriter<IndexedRecord>(record.getSchema());
+                writer = new GenericDatumWriter<>(record.getSchema());
             writer.write(record, encoder);
 
-            System.err.println(out.toByteArray().length);
             return out.toByteArray();
-            //return new Message(out.toByteArray());
         } catch (IOException e) {
             throw new MessageEncoderException(e);
         }

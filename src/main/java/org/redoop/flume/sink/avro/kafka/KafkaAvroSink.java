@@ -134,19 +134,14 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
 
         encoder = new DelegatingKafkaAvroMessageEncoder(topic, null);
 
-        Serde<Schema> serde = new Serde<Schema>() {
-            @Override
-            public byte[] toBytes(Schema obj) {
-                return obj.toString().getBytes();
-            }
-
-            @Override
-            public Schema fromBytes(byte[] bytes) {
-                return Schema.parse(new String(bytes));
-            }
-        };
-
-        SchemaRegistry<Schema> registry = new MemorySchemaRegistry<Schema>();
+        SchemaRegistry<Schema> registry = null;
+        try {
+            registry = (SchemaRegistry<Schema>) Class.forName(props.getProperty(KafkaAvroMessageEncoder.KAFKA_MESSAGE_CODER_SCHEMA_REGISTRY_CLASS)).newInstance();
+        } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+            log.error("Cannot instanciate registry", e);
+            stop();
+            return;
+        }
 
         try {
             schema = KafkaAvroSinkUtil.schemaFromFile(avroSchemaFile);
@@ -154,6 +149,7 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
         } catch (IOException e) {
             log.error("Cannot find file", e);
             stop();
+            return;
         }
 
         encoder.init(props, topic, registry);
