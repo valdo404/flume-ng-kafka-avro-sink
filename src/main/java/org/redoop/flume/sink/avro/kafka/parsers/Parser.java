@@ -22,8 +22,5 @@ package org.redoop.flume.sink.avro.kafka.parsers;
 import java.util.HashMap;
 
 public interface Parser {
-	
-    public HashMap<String, Object> init(String line);
-
-
+    public HashMap<String, Object> parse(String line);
 }

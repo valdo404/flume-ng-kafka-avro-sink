@@ -80,13 +80,12 @@ public class KafkaAvroSinkUtil {
     	return record;
     }
     
-	public static HashMap<String, Object> parseMessage(Properties props, String line) {
+	public static HashMap<String, Object> parseMessage(Parser parser, Properties props, String line) throws IllegalAccessException, ClassNotFoundException, InstantiationException {
 		try {
-			Parser parser = (Parser) Class.forName(props.getProperty(PARSER_CLASS)).newInstance();
-			return parser.init(line);			
+			return parser.parse(line);
 		} catch (Exception e) {
 			log.error("KafkaAvroUtilSink Exception:{}", e);
-			return null;
+			throw e;
 		}
 		
 	}

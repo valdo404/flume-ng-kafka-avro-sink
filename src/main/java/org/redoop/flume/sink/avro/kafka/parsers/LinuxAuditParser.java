@@ -46,7 +46,7 @@ public class LinuxAuditParser implements Parser{
 	public static final String USER_START = "USER_START"; // DONE
 
 	@Override
-	public HashMap<String, Object> init(String line) {
+	public HashMap<String, Object> parse(String line) {
 		HashMap<String, Object> map = new HashMap<String, Object>();
 		String fields[] = line.split(" ");
 		String type = fields[1].split("=")[1];

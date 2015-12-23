@@ -24,11 +24,11 @@ import java.util.HashMap;
 public class HelloWorldParser implements Parser {
 
 	@Override
-	public HashMap<String, Object> init(String line) {
+	public HashMap<String, Object> parse(String line) {
 		HashMap<String, Object> map = new HashMap<String, Object>();
 		String fields[] = line.split(" ");
 		map.put("Action", fields[0]);
-		map.put("Message", fields[1]);
+		//map.put("Message", fields[1]);
 		return map;
 	}
 

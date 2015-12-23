@@ -23,14 +23,12 @@ import static org.mockito.Mockito.*;
 
 import java.lang.reflect.Field;
 
+import com.linkedin.camus.schemaregistry.MemorySchemaRegistry;
 import kafka.javaapi.producer.Producer;
 import kafka.producer.KeyedMessage;
 
-import org.apache.flume.Channel;
-import org.apache.flume.Event;
-import org.apache.flume.EventDeliveryException;
+import org.apache.flume.*;
 import org.apache.flume.Sink.Status;
-import org.apache.flume.Transaction;
 import org.apache.flume.sink.AbstractSink;
 import org.junit.After;
 import org.junit.Before;
@@ -53,6 +51,13 @@ public class KafkaAvroSinkTest {
 		mockEvent = mock(Event.class);
 		mockTx = mock(Transaction.class);
 		mockKafkaSink = new KafkaAvroSink();
+		Context context = new Context();
+		context.put("topic", "test");
+		context.put("avro.schema.file", getClass().getClassLoader().getResource("test.avsc").getFile());
+		context.put("metadata.broker.list", "127.0.0.1:9092");
+		context.put("parser.class", org.redoop.flume.sink.avro.kafka.parsers.HelloWorldParser.class.getName());
+		context.put("kafka.message.coder.schema.registry.class", com.linkedin.camus.schemaregistry.MemorySchemaRegistry.class.getName() );
+		mockKafkaSink.configure(context);
 		
 		Field field = AbstractSink.class.getDeclaredField("channel");
 		field.setAccessible(true);

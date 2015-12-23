@@ -34,6 +34,7 @@ import org.apache.flume.Transaction;
 import org.apache.flume.conf.Configurable;
 import org.apache.flume.conf.ConfigurationException;
 import org.apache.flume.sink.AbstractSink;
+import org.redoop.flume.sink.avro.kafka.parsers.Parser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,7 +58,7 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
 	private Producer<byte[], byte[]> producer;
 	private File avroSchemaFile;
 	private Properties props;
-	
+	private Parser parser;
 
 	public Status process() throws EventDeliveryException {
 		Channel channel = getChannel();
@@ -72,7 +73,7 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
 			}
 			
 			String line = new String (event.getBody());
-			HashMap<String, Object> map = KafkaAvroSinkUtil.parseMessage(props,line);
+			HashMap<String, Object> map = KafkaAvroSinkUtil.parseMessage(parser, props,line);
 			Record record = KafkaAvroSinkUtil.fillRecord(KafkaAvroSinkUtil.fillAvroTestSchema(avroSchemaFile),map);
 			byte[] avroRecord = KafkaAvroSinkUtil.encodeMessage(topic,record,props);
 			
@@ -108,6 +109,15 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
 		}
 		producer = KafkaAvroSinkUtil.getProducer(context);
 		props = KafkaAvroSinkUtil.getKafkaConfigProperties(context);
+		try {
+			parser = (Parser) Class.forName(props.getProperty(KafkaAvroSinkUtil.PARSER_CLASS)).newInstance();
+		} catch (InstantiationException e) {
+			e.printStackTrace();
+		} catch (IllegalAccessException e) {
+			e.printStackTrace();
+		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
