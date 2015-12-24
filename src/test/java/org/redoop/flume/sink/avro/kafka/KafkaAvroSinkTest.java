@@ -50,7 +50,7 @@ public class KafkaAvroSinkTest {
 		mockChannel = mock(Channel.class);
 		mockEvent = mock(Event.class);
 		mockTx = mock(Transaction.class);
-		mockKafkaSink = new KafkaAvroSink();
+		mockKafkaSink = new ParsingKafkaAvroSink();
 		Context context = new Context();
 		context.put("topic", "test");
 		context.put("avro.schema.file", getClass().getClassLoader().getResource("test.avsc").getFile());

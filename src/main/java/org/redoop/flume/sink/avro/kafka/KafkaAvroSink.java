@@ -23,17 +23,15 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Properties;
 
-import com.linkedin.camus.etl.kafka.coders.KafkaAvroMessageDecoder;
 import com.linkedin.camus.etl.kafka.coders.KafkaAvroMessageEncoder;
-import com.linkedin.camus.schemaregistry.FileSchemaRegistry;
-import com.linkedin.camus.schemaregistry.MemorySchemaRegistry;
 import com.linkedin.camus.schemaregistry.SchemaRegistry;
-import com.linkedin.camus.schemaregistry.Serde;
 import kafka.javaapi.producer.Producer;
 import kafka.producer.KeyedMessage;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData.Record;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.IndexedRecord;
 import org.apache.flume.Channel;
 import org.apache.flume.Context;
 import org.apache.flume.Event;
@@ -60,20 +58,17 @@ import org.slf4j.LoggerFactory;
  *
  * }
  */
-public class KafkaAvroSink extends AbstractSink implements Configurable {
-    public static final String PARSER_CLASS = "parser.class";
-
+public abstract class KafkaAvroSink extends AbstractSink implements Configurable {
     private static final Logger log = LoggerFactory.getLogger(KafkaAvroSink.class);
-    private String topic;
-    private Producer<byte[], byte[]> producer;
-    private File avroSchemaFile;
-    private Schema schema;
 
-    private Properties props;
-    private Parser parser;
+    protected String topic;
+    protected Producer<byte[], byte[]> producer;
+    protected Schema schema;
 
-    private DelegatingKafkaAvroMessageEncoder encoder;
-    private DelegatingKafkaAvroMessageDecoder decoder;
+    protected Properties props;
+
+    protected DelegatingKafkaAvroMessageEncoder encoder;
+    protected DelegatingKafkaAvroMessageDecoder decoder;
 
     public Status process() throws EventDeliveryException {
         Channel channel = getChannel();
@@ -86,7 +81,7 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
                 return Status.READY;
             }
 
-            Record record = buildRecord(event.getBody());
+            IndexedRecord record = buildRecord(event.getBody());
 
             byte[] avroRecord = encoder.toBytes(record);
 
@@ -108,13 +103,9 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
         }
     }
 
-    private Record buildRecord(byte[] body) throws IOException {
-        String line = new String(body);
-        HashMap<String, Object> map = parser.parse(line);
+    protected abstract IndexedRecord buildRecord(byte[] body) throws IOException;
 
-        return KafkaAvroSinkUtil.recordFromMap(schema, map);
-    }
-
+    @Override
     public void configure(Context context) {
         topic = context.getString("topic");
         if (topic == null) {
@@ -122,6 +113,8 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
         }
         // Get schema file
         String avroSchemaFileName = context.getString("avro.schema.file");
+
+        File avroSchemaFile;
         if (avroSchemaFileName == null) {
             throw new ConfigurationException("Avro schema must be specified.");
         } else {
@@ -155,19 +148,9 @@ public class KafkaAvroSink extends AbstractSink implements Configurable {
 
         decoder = new DelegatingKafkaAvroMessageDecoder(topic, null);
         decoder.init(props, topic, registry);
-
-        instanciateParser();
     }
 
 
-    private void instanciateParser() {
-        try {
-            parser = (Parser) Class.forName(props.getProperty(PARSER_CLASS)).newInstance();
-        } catch (InstantiationException | ClassNotFoundException | IllegalAccessException e) {
-            log.error("Exception while loading parser", e);
-            stop();
-        }
-    }
 
     @Override
     public synchronized void start() {

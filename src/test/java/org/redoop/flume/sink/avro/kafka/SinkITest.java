@@ -6,24 +6,33 @@ import kafka.consumer.ConsumerIterator;
 import kafka.consumer.KafkaStream;
 import kafka.javaapi.consumer.ConsumerConnector;
 import kafka.javaapi.producer.Producer;
-import kafka.producer.KeyedMessage;
 import kafka.producer.ProducerConfig;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServer;
 import kafka.utils.*;
 import kafka.zk.EmbeddedZookeeper;
 import org.I0Itec.zkclient.ZkClient;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.IndexedRecord;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.DatumWriter;
+import org.apache.avro.io.EncoderFactory;
 import org.apache.flume.*;
 import org.apache.flume.sink.AbstractSink;
 import org.junit.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -31,7 +40,8 @@ import static org.mockito.Mockito.verify;
  */
 public class SinkITest {
     @Test
-    public void testConsumption() throws NoSuchFieldException, IllegalAccessException, EventDeliveryException {
+    public void testConsumption() throws NoSuchFieldException, IllegalAccessException, EventDeliveryException, IOException {
+        //given I configure a kafka broker
         int brokerId = 1;
         String topic = "aaaaa";
 
@@ -40,55 +50,47 @@ public class SinkITest {
         ZkClient zkClient = zookeeperClient(zkConnect);
         int port = TestUtils.choosePort();
 
+        Properties prop = TestUtils.createBrokerConfig(brokerId, port, true);
         KafkaServer kafkaServer = initializeKafka(brokerId, port, topic, zkClient);
 
-        //producer / consumer
+        //given I configure producers and consumers
         Producer producer = buildProducer(port);
         ConsumerConnector consumer = buildConsumer(zkConnect);
 
-        // send message
-        KafkaAvroSink mockKafkaSink = new KafkaAvroSink();
+        //given I define a sink
+        RawKafkaAvroSink mockKafkaSink = new RawKafkaAvroSink();
 
+        //given I define channels and transactions
         Channel mockChannel = mock(Channel.class);
         Event event = mock(Event.class);
         Transaction transaction = mock(Transaction.class);
 
-        Properties prop = TestUtils.createBrokerConfig(brokerId, TestUtils.choosePort(), true);
+        when(mockChannel.take()).thenReturn(event);
+        when(mockChannel.getTransaction()).thenReturn(transaction);
 
+        mockFields(topic, producer, mockKafkaSink, mockChannel);
+
+        //when I define an avro schema
+        String schemaFile = getClass().getClassLoader().getResource("test.avsc").getFile();
+        when(event.getBody()).thenReturn(getSampleBytes(schemaFile));
+
+        //when I configure the sink
         Context context = new Context();
         context.put("topic", topic);
-        context.put("avro.schema.file", getClass().getClassLoader().getResource("test.avsc").getFile());
+        context.put("avro.schema.file", schemaFile);
         context.put("metadata.broker.list", prop.get("host.name").toString() + ":" + prop.get("port").toString());
         context.put("parser.class", org.redoop.flume.sink.avro.kafka.parsers.HelloWorldParser.class.getName());
         context.put("kafka.message.coder.schema.registry.class", com.linkedin.camus.schemaregistry.MemorySchemaRegistry.class.getName());
 
         mockKafkaSink.configure(context);
 
-        Field field = AbstractSink.class.getDeclaredField("channel");
-        field.setAccessible(true);
-        field.set(mockKafkaSink, mockChannel);
-
-        when(mockChannel.take()).thenReturn(event);
-        when(mockChannel.getTransaction()).thenReturn(transaction);
-        when(event.getBody()).thenReturn("frank".getBytes());
-
-        field = KafkaAvroSink.class.getDeclaredField("topic");
-        field.setAccessible(true);
-        field.set(mockKafkaSink, topic);
-
-        field = KafkaAvroSink.class.getDeclaredField("producer");
-        field.setAccessible(true);
-        field.set(mockKafkaSink, producer);
-
         zkClient.delete("/consumers/group0");
 
+        //then everything goes right when I launch process
         Sink.Status status = mockKafkaSink.process();
         assertEquals(status, Sink.Status.READY);
 
-        /* consume */
-        // deleting zookeeper information to make sure the consumer starts from the beginning
-        // starting consumer
-
+        //and message can be retrieved in kafka
         Map<String, List<KafkaStream<byte[], byte[]>>> consumerMap = consumer.createMessageStreams(topicMap(topic));
 
         KafkaStream<byte[], byte[]> stream = consumerMap.get(topic).get(0);
@@ -101,11 +103,43 @@ public class SinkITest {
             fail();
         }
 
-        // cleanup
+        // and finally the cluster can be shutdown without errors
         consumer.shutdown();
         kafkaServer.shutdown();
         zkClient.close();
         zkServer.shutdown();
+    }
+
+    private void mockFields(String topic, Producer producer, RawKafkaAvroSink mockKafkaSink, Channel mockChannel) throws NoSuchFieldException, IllegalAccessException {
+        Field field = AbstractSink.class.getDeclaredField("channel");
+        field.setAccessible(true);
+        field.set(mockKafkaSink, mockChannel);
+
+        field = KafkaAvroSink.class.getDeclaredField("topic");
+        field.setAccessible(true);
+        field.set(mockKafkaSink, topic);
+
+        field = KafkaAvroSink.class.getDeclaredField("producer");
+        field.setAccessible(true);
+        field.set(mockKafkaSink, producer);
+    }
+
+    private byte[] getSampleBytes(String schemaFile) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        EncoderFactory encoderFactory = EncoderFactory.get();
+        BinaryEncoder encoder = encoderFactory.directBinaryEncoder(out, null);
+        DatumWriter<IndexedRecord> writer;
+
+        Schema schema = KafkaAvroSinkUtil.schemaFromFile(new File(schemaFile));
+        GenericRecord record = new GenericData.Record(schema);
+
+        record.put("Action", "patate");
+
+        writer = new GenericDatumWriter<>(record.getSchema());
+        writer.write(record, encoder);
+
+        return out.toByteArray();
     }
 
     private Map<String, Integer> topicMap(String topic) {

@@ -25,6 +25,8 @@ import java.util.Properties;
 public class DelegatingKafkaAvroMessageDecoder extends MessageDecoder<byte[], GenericData.Record> {
     protected DecoderFactory decoderFactory;
     protected SchemaRegistry<Schema> registry;
+
+
     private Schema latestSchema;
 
     @SuppressWarnings("unchecked")
@@ -123,12 +125,19 @@ public class DelegatingKafkaAvroMessageDecoder extends MessageDecoder<byte[], Ge
                     (helper.getTargetSchema() == null) ? new GenericDatumReader<GenericData.Record>(helper.getSchema())
                             : new GenericDatumReader<GenericData.Record>(helper.getSchema(), helper.getTargetSchema());
 
-            return new CamusAvroWrapper(reader.read(null,
-                    decoderFactory.binaryDecoder(helper.getBuffer().array(), helper.getStart(), helper.getLength(), null)));
+            return new CamusAvroWrapper(reader.read(null, decoderFactory.binaryDecoder(helper.getBuffer().array(), helper.getStart(), helper.getLength(), null)));
 
         } catch (IOException e) {
             throw new MessageDecoderException(e);
         }
+    }
+
+    public Schema getLatestSchema() {
+        return latestSchema;
+    }
+
+    public void setLatestSchema(Schema latestSchema) {
+        this.latestSchema = latestSchema;
     }
 
     public static class CamusAvroWrapper extends CamusWrapper<GenericData.Record> {
